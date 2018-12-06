@@ -31,8 +31,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     OutputStream outptStrm;
     InputStream inptStrm;
 
-    private static final float max_gravity = 2.7F;
-    private static final int slope_time = 500;
+    private static final float max_gravity = 2.8F;
+    private static final int slope_time = 600;
     private long ShktTime;
     String msg;
 
