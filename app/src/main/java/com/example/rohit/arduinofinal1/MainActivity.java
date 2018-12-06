@@ -16,11 +16,15 @@ import android.view.View;
 import android.widget.Button;
 import android.hardware.SensorEventListener;
 import android.widget.Toast;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Set;
 import java.util.UUID;
 import java.lang.Math;
+
+
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
@@ -30,6 +34,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     BluetoothDevice dvce;
     OutputStream outptStrm;
     InputStream inptStrm;
+
+    Thread workerThread;
+    byte[] readBuffer;
+    int readBufferPosition;
+    int counter;
+    volatile boolean stopWorker;
 
     private static final float max_gravity = 2.8F;
     private static final int slope_time = 600;
@@ -73,7 +83,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             //if sensor is proximity
             if (event.sensor.getType() == Sensor.TYPE_PROXIMITY) {
                 Toast.makeText(getApplicationContext(), "Proximity", Toast.LENGTH_SHORT).show();
-                msg += "1\n";
+                msg = "1\n";
+                outptStrm.write(msg.getBytes());
 
             } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 //if sensor is accelerometer
@@ -98,13 +109,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     ShktTime = now;
 
                     Toast.makeText(getApplicationContext(), "Shake", Toast.LENGTH_SHORT).show();
-                    msg += "2\n";
+                    msg = "2\n";
                     outptStrm.write(msg.getBytes());
                 }
 
             }
 
-            outptStrm.write(msg.getBytes());
+            //outptStrm.write(msg.getBytes());
             //String msg = "2";
             //msg += "\n";
             //outptStrm.write(msg.getBytes());
@@ -161,8 +172,69 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             outptStrm = mmSocket.getOutputStream();
             inptStrm = mmSocket.getInputStream();
 
+            beginListenForData();
+
+            Toast.makeText(getApplicationContext(), "Arduino Connected", Toast.LENGTH_SHORT).show();
+
         } catch (Exception ex) {
 
         }
+    }
+
+    void beginListenForData()
+    {
+        final Handler handler = new Handler();
+        final byte delimiter = 10; //This is the ASCII code for a newline character
+
+        stopWorker = false;
+        readBufferPosition = 0;
+        readBuffer = new byte[1024];
+        workerThread = new Thread(new Runnable()
+        {
+            public void run()
+            {
+                while(!Thread.currentThread().isInterrupted() && !stopWorker)
+                {
+                    try
+                    {
+                        int bytesAvailable = inptStrm.available();
+                        if(bytesAvailable > 0)
+                        {
+                            byte[] packetBytes = new byte[bytesAvailable];
+                            inptStrm.read(packetBytes);
+                            for(int i=0;i<bytesAvailable;i++)
+                            {
+                                byte b = packetBytes[i];
+                                if(b == delimiter)
+                                {
+                                    byte[] encodedBytes = new byte[readBufferPosition];
+                                    System.arraycopy(readBuffer, 0, encodedBytes, 0, encodedBytes.length);
+                                    final String data = new String(encodedBytes, "US-ASCII");
+                                    readBufferPosition = 0;
+
+                                    handler.post(new Runnable()
+                                    {
+                                        public void run()
+                                        {
+                                            //myLabel.setText(data);
+                                        }
+                                    });
+                                }
+                                else
+                                {
+                                    readBuffer[readBufferPosition++] = b;
+                                }
+                            }
+                        }
+                    }
+                    catch (IOException ex)
+                    {
+                        stopWorker = true;
+                    }
+                }
+            }
+        });
+
+        workerThread.start();
     }
 }
