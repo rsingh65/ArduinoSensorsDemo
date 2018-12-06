@@ -30,14 +30,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     BluetoothDevice dvce;
     OutputStream outptStrm;
     InputStream inptStrm;
-    Thread workerThread;
-    byte[] readBuffer;
-    int readBufferPosition;
-    int counter;
-    volatile boolean stopWorker;
-    private static final float SHAKE_THRESHOLD_GRAVITY = 2.7F;
-    private static final int SHAKE_SLOP_TIME_MS = 500;
-    private long mShakeTimestamp;
+
+    private static final float max_gravity = 2.7F;
+    private static final int slope_time = 500;
+    private long ShktTime;
     String msg;
 
     @Override
@@ -92,14 +88,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 float gForce = (float) Math.sqrt(gravityX * gravityX + gravityY * gravityY + gravityZ * gravityZ);
 
-                if (gForce > SHAKE_THRESHOLD_GRAVITY) {
+                if (gForce > max_gravity) {
                     final long now = System.currentTimeMillis();
 
                     //ignore shakes very near to each other
-                    if (mShakeTimestamp + SHAKE_SLOP_TIME_MS > now) {
+                    if (ShktTime + slope_time > now) {
                         return;
                     }
-                    mShakeTimestamp = now;
+                    ShktTime = now;
 
                     Toast.makeText(getApplicationContext(), "Shake", Toast.LENGTH_SHORT).show();
                     msg += "2\n";
